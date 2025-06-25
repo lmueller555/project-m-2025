@@ -135,7 +135,7 @@ def run_backtest(df):
 series_vals, final_val, roi, win_rate, open_df = run_backtest(df_sorted)
 
 # —— DASHBOARD ——
-st.title("📈 Project M – Trading Simulation")
+st.title("📈 Project M – Virtual Portfolio")
 st.subheader(f"Today's Date: {date.today().isoformat()}")
 
 c1, c2, c3 = st.columns(3)
