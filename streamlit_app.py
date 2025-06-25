@@ -156,12 +156,37 @@ st.subheader("Open Positions")
 if open_df.empty:
     st.info("No active trades.")
 else:
-    def colour(val):
-        if isinstance(val, (int, float)):
-            if val > 0: return "color:green;"
-            if val < 0: return "color:red;"
-        return ""
-    styled = (open_df.style
-              .applymap(colour, subset=["P/L $", "P/L %"])
-              .format(precision=2))
-    st.write(styled.to_html(index=False), unsafe_allow_html=True)
+    table_col, graph_col = st.columns(2)
+
+    with table_col:
+        def colour(val):
+            if isinstance(val, (int, float)):
+                if val > 0:
+                    return "color:green;"
+                if val < 0:
+                    return "color:red;"
+            return ""
+
+        styled = (
+            open_df.style.applymap(colour, subset=["P/L $", "P/L %"]).format(precision=2)
+        )
+        st.write(styled.to_html(index=False), unsafe_allow_html=True)
+
+    with graph_col:
+        fig2, ax2 = plt.subplots(figsize=(6, 4), facecolor="black")
+        ax2.set_facecolor("black")
+        for _, row in open_df.iterrows():
+            start = pd.to_datetime(row["Buy Date"])
+            history = df_sorted[
+                (df_sorted["Company"] == row["Company"]) & (df_sorted["Date"] >= start)
+            ]
+            ax2.plot(history["Date"], history["Price"], label=row["Company"])
+
+        ax2.set_xlabel("Date", color="white")
+        ax2.set_ylabel("Price ($)", color="white")
+        ax2.tick_params(colors="white")
+        ax2.grid(alpha=0.3, color="gray")
+        for spine in ax2.spines.values():
+            spine.set_color("white")
+        ax2.legend()
+        st.pyplot(fig2, clear_figure=True)
