@@ -180,11 +180,12 @@ else:
             history = df_sorted[
                 (df_sorted["Company"] == row["Company"]) & (df_sorted["Date"] >= start)
             ]
-            ax2.plot(history["Date"], history["Price"], label=row["Company"])
+            pct_change = (history["Price"] - row["Buy Price"]) / row["Buy Price"] * 100
+            ax2.plot(history["Date"], pct_change, label=row["Company"])
 
         ax2.set_xlabel("Date", color="white")
-        ax2.set_ylabel("Price ($)", color="white")
-        ax2.tick_params(colors="white")
+        ax2.set_ylabel("Price Change (%)", color="white")
+        ax2.tick_params(colors="white", rotation=45)
         ax2.grid(alpha=0.3, color="gray")
         for spine in ax2.spines.values():
             spine.set_color("white")
