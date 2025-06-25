@@ -35,6 +35,7 @@ date_index = df_sorted["Date"].unique()
 def run_backtest(df):
     cash, contrib_ctr = INITIAL_INVEST, 0
     portfolio, trades, equity_curve = [], [], []
+    trade_history = []
 
     for i, curr_date in enumerate(date_index):
         contrib_ctr += 1
@@ -52,6 +53,12 @@ def run_backtest(df):
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
                 trades.append(profit > 0)
+                trade_history.append(
+                    dict(company=pos["company"],
+                         date=curr_date,
+                         action="sell",
+                         price=px)
+                )
             portfolio.clear()
 
         todays_rows = df[df["Date"] == curr_date]
@@ -76,6 +83,12 @@ def run_backtest(df):
                              shares_bought=qty,
                              buy_price=next_open)
                     )
+                    trade_history.append(
+                        dict(company=row["Company"],
+                             date=buy_date,
+                             action="buy",
+                             price=next_open)
+                    )
 
         for pos in portfolio[:]:
             if pos["sell_date"] is not None and curr_date == pos["sell_date"]:
@@ -87,6 +100,12 @@ def run_backtest(df):
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
                 trades.append(profit > 0)
+                trade_history.append(
+                    dict(company=pos["company"],
+                         date=curr_date,
+                         action="sell",
+                         price=px)
+                )
                 portfolio.remove(pos)
 
         pv = 0
@@ -129,10 +148,24 @@ def run_backtest(df):
         })
     open_df = pd.DataFrame(rows)
 
-    return (pd.Series(equity_curve, index=date_index),
-            round(final_val, 2), round(roi, 2), round(win_rate, 2), open_df)
+    trades_df = pd.DataFrame(trade_history)
+    return (
+        pd.Series(equity_curve, index=date_index),
+        round(final_val, 2),
+        round(roi, 2),
+        round(win_rate, 2),
+        open_df,
+        trades_df,
+    )
 
-series_vals, final_val, roi, win_rate, open_df = run_backtest(df_sorted)
+(
+    series_vals,
+    final_val,
+    roi,
+    win_rate,
+    open_df,
+    trade_df,
+) = run_backtest(df_sorted)
 
 # —— DASHBOARD ——
 st.title("📈 Project M – Virtual Portfolio")
@@ -154,13 +187,35 @@ change = series_vals.iloc[-1] - start_val
 change_pct = (change / start_val * 100) if start_val != 0 else 0
 metric_col.metric(f"{selected_tf} Change", f"${change:,.2f}", f"{change_pct:.2f}%")
 
+# --- COMPANY DROPDOWN ---
+trade_counts = trade_df[trade_df["action"] == "buy"]["company"].value_counts()
+options = ["All Companies"] + [f"{c} ({trade_counts[c]})" for c in trade_counts.index]
+selected_label = st.selectbox("Select Company", options)
+selected_company = None if selected_label == "All Companies" else selected_label.split(" (", 1)[0]
+
 st.subheader("Portfolio Value Over Time")
 fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
 ax.set_facecolor("black")
-ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
-ax.set_xlabel("Date", color="white"); ax.set_ylabel("Total Portfolio Value ($)", color="white")
-ax.tick_params(colors="white"); ax.grid(alpha=0.3, color="gray")
-for spine in ax.spines.values(): spine.set_color("white")
+if selected_company is None:
+    ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
+    ax.set_ylabel("Total Portfolio Value ($)", color="white")
+else:
+    history = df_sorted[df_sorted["Company"] == selected_company]
+    ax.plot(history["Date"], history["Price"], color="#00BFFF", linewidth=2, label=selected_company)
+    comp_trades = trade_df[trade_df["company"] == selected_company]
+    buys = comp_trades[comp_trades["action"] == "buy"]
+    sells = comp_trades[comp_trades["action"] == "sell"]
+    if not buys.empty:
+        ax.scatter(buys["date"], buys["price"], marker="^", color="green", s=80, label="Buy")
+    if not sells.empty:
+        ax.scatter(sells["date"], sells["price"], marker="v", color="red", s=80, label="Sell")
+    ax.legend()
+    ax.set_ylabel("Price ($)", color="white")
+ax.set_xlabel("Date", color="white")
+ax.tick_params(colors="white")
+ax.grid(alpha=0.3, color="gray")
+for spine in ax.spines.values():
+    spine.set_color("white")
 st.pyplot(fig, clear_figure=True)
 
 st.subheader("Open Positions")
