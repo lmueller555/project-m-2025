@@ -3,8 +3,41 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import date
+import base64
 
 st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
+
+# add background logo with 50% opacity
+def add_logo_background(png_file):
+    """Embed logo as background image for the app."""
+    with open(png_file, "rb") as img:
+        encoded = base64.b64encode(img.read()).decode()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            position: relative;
+        }}
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background-image: url(data:image/png;base64,{encoded});
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.5;
+            z-index: -1;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+add_logo_background("Mueller Logo.png")
 
 plt.style.use("dark_background")  # black theme for all plots
 
@@ -202,8 +235,9 @@ selected_label = st.selectbox("Select Company", options)
 selected_company = None if selected_label == "All Companies" else selected_label.split(" (", 1)[0]
 
 st.subheader("Portfolio Value Over Time")
-fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
-ax.set_facecolor("black")
+fig, ax = plt.subplots(figsize=(10, 4))
+fig.patch.set_alpha(0)
+ax.set_facecolor((0, 0, 0, 0.8))
 if selected_company is None:
     ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
@@ -247,8 +281,9 @@ else:
         st.write(styled.to_html(index=False), unsafe_allow_html=True)
 
     with graph_col:
-        fig2, ax2 = plt.subplots(figsize=(6, 4), facecolor="black")
-        ax2.set_facecolor("black")
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        fig2.patch.set_alpha(0)
+        ax2.set_facecolor((0, 0, 0, 0.8))
         for _, row in open_df.iterrows():
             start = pd.to_datetime(row["Buy Date"])
             history = df_sorted[
