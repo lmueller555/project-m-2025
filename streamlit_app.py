@@ -17,6 +17,7 @@ def add_logo_background(png_file):
         <style>
         .stApp {{
             position: relative;
+            z-index: 1;
         }}
         .stApp::before {{
             content: "";
@@ -30,7 +31,8 @@ def add_logo_background(png_file):
             background-position: center;
             background-size: contain;
             opacity: 0.5;
-            z-index: -1;
+            z-index: 0;
+            pointer-events: none;
         }}
         </style>
         """,
