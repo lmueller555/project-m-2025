@@ -7,35 +7,36 @@ import base64
 
 st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
 
-# add background logo with 50% opacity
-def add_logo_background(png_file):
-    """Embed logo as background image for the app with semi-transparent overlay."""
+# ---------- THE ONLY CHANGES ARE INSIDE add_logo_background() ----------
+def add_logo_background(png_file: str):
+    """Add a faint logo behind the entire Streamlit app."""
     with open(png_file, "rb") as img:
         encoded = base64.b64encode(img.read()).decode()
+
     st.markdown(
         f"""
         <style>
+        /* Whole app becomes a positioning context */
         .stApp {{
             position: relative;
-            z-index: 1;
         }}
+
+        /* Background logo */
         .stApp::before {{
             content: "";
             position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background-image: url(data:image/png;base64,{encoded});
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
-            opacity: 0.25;
-            z-index: 0;
-            pointer-events: none;
+            inset: 0;                              /* top/right/bottom/left: 0 */
+            background: url(data:image/png;base64,{encoded}) no-repeat center/contain;
+            opacity: 0.25;                         /* faint */
+            z-index: -1;                           /* ⬅️  push under everything */
+            pointer-events: none;                  /* avoid blocking clicks */
         }}
+
+        /* Optional: translucent panel for the main content */
         .main .block-container {{
-            background-color: rgba(0, 0, 0, 0.6);
+            position: relative;                    /* create its own layer */
+            z-index: 1;                            /* above the background   */
+            background-color: rgba(0, 0, 0, 0.6);  /* dark glass effect      */
             padding: 2rem;
             border-radius: 12px;
         }}
@@ -45,7 +46,6 @@ def add_logo_background(png_file):
     )
 
 add_logo_background("Mueller Logo.png")
-
 plt.style.use("dark_background")
 
 # —— CONFIG ——
