@@ -3,50 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import date
-import base64
 
 st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
 
-# ---------- THE ONLY CHANGES ARE INSIDE add_logo_background() ----------
-def add_logo_background(png_file: str):
-    """Add a faint logo behind the entire Streamlit app."""
-    with open(png_file, "rb") as img:
-        encoded = base64.b64encode(img.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        /* Whole app becomes a positioning context */
-        .stApp {{
-            position: relative;
-        }}
-
-        /* Background logo */
-        .stApp::before {{
-            content: "";
-            position: fixed;
-            inset: 0;                              /* top/right/bottom/left: 0 */
-            background: url(data:image/png;base64,{encoded}) no-repeat center/contain;
-            opacity: 0.25;                         /* faint */
-            z-index: -1;                           /* ⬅️  push under everything */
-            pointer-events: none;                  /* avoid blocking clicks */
-        }}
-
-        /* Optional: translucent panel for the main content */
-        .main .block-container {{
-            position: relative;                    /* create its own layer */
-            z-index: 1;                            /* above the background   */
-            background-color: rgba(0, 0, 0, 0.6);  /* dark glass effect      */
-            padding: 2rem;
-            border-radius: 12px;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-add_logo_background("Mueller Logo.png")
-plt.style.use("dark_background")
+plt.style.use("dark_background")  # black theme for all plots
 
 # —— CONFIG ——
 FILE_PATH = "Updated_Dataset_with_Signals_Ranked.csv"
@@ -55,6 +15,8 @@ CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
 MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
+# The dataset has a year long gap before 2025-06-20. Change metrics
+# should not cross this date when looking back in time.
 EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
 
 # —— LOAD DATA ——
@@ -86,20 +48,27 @@ def run_backtest(df):
 
         if curr_date == MANUAL_EXIT_DATE:
             for pos in portfolio[:]:
-                px = df.loc[(df["Company"] == pos["company"]) & (df["Date"] == curr_date), "Price"]
+                px = df.loc[(df["Company"] == pos["company"]) &
+                            (df["Date"] == curr_date), "Price"]
                 if px.empty:
                     continue
                 px = px.iloc[0]
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
                 trades.append(profit > 0)
-                trade_history.append(dict(company=pos["company"], date=curr_date, action="sell", price=px))
+                trade_history.append(
+                    dict(company=pos["company"],
+                         date=curr_date,
+                         action="sell",
+                         price=px)
+                )
             portfolio.clear()
 
         todays_rows = df[df["Date"] == curr_date]
         for _, row in todays_rows.iterrows():
             if row["30 Day Buy Signal"] == 1 and cash > 0 and i + 1 < len(date_index):
-                nxt = df[(df["Company"] == row["Company"]) & (df["Date"] == date_index[i + 1])]
+                nxt = df[(df["Company"] == row["Company"]) &
+                         (df["Date"] == date_index[i + 1])]
                 if nxt.empty:
                     continue
                 next_open = nxt.iloc[0]["Open"]
@@ -108,26 +77,44 @@ def run_backtest(df):
                     invest = qty * next_open
                     cash -= invest
                     buy_date = date_index[i + 1]
-                    sell_date = (date_index[i + HOLD_DAYS] if i + HOLD_DAYS < len(date_index) else None)
-                    portfolio.append(dict(company=row["Company"], buy_date=buy_date, sell_date=sell_date,
-                                          shares_bought=qty, buy_price=next_open))
-                    trade_history.append(dict(company=row["Company"], date=buy_date, action="buy", price=next_open))
+                    sell_date = (date_index[i + HOLD_DAYS]
+                                 if i + HOLD_DAYS < len(date_index) else None)
+                    portfolio.append(
+                        dict(company=row["Company"],
+                             buy_date=buy_date,
+                             sell_date=sell_date,
+                             shares_bought=qty,
+                             buy_price=next_open)
+                    )
+                    trade_history.append(
+                        dict(company=row["Company"],
+                             date=buy_date,
+                             action="buy",
+                             price=next_open)
+                    )
 
         for pos in portfolio[:]:
             if pos["sell_date"] is not None and curr_date == pos["sell_date"]:
-                px = df.loc[(df["Company"] == pos["company"]) & (df["Date"] == pos["sell_date"]), "Price"]
+                px = df.loc[(df["Company"] == pos["company"]) &
+                            (df["Date"] == pos["sell_date"]), "Price"]
                 if px.empty:
                     continue
                 px = px.iloc[0]
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
                 trades.append(profit > 0)
-                trade_history.append(dict(company=pos["company"], date=curr_date, action="sell", price=px))
+                trade_history.append(
+                    dict(company=pos["company"],
+                         date=curr_date,
+                         action="sell",
+                         price=px)
+                )
                 portfolio.remove(pos)
 
         pv = 0
         for pos in portfolio:
-            cur_px = df.loc[(df["Company"] == pos["company"]) & (df["Date"] == curr_date), "Price"]
+            cur_px = df.loc[(df["Company"] == pos["company"]) &
+                            (df["Date"] == curr_date), "Price"]
             if not cur_px.empty:
                 pv += pos["shares_bought"] * cur_px.iloc[0]
         equity_curve.append(cash + pv)
@@ -140,7 +127,8 @@ def run_backtest(df):
     last_date = date_index[-1]
     rows = []
     for pos in portfolio:
-        last_px = df.loc[(df["Company"] == pos["company"]) & (df["Date"] == last_date), "Price"]
+        last_px = df.loc[(df["Company"] == pos["company"]) &
+                         (df["Date"] == last_date), "Price"]
         if last_px.empty:
             continue
         last_px = last_px.iloc[0]
@@ -214,9 +202,8 @@ selected_label = st.selectbox("Select Company", options)
 selected_company = None if selected_label == "All Companies" else selected_label.split(" (", 1)[0]
 
 st.subheader("Portfolio Value Over Time")
-fig, ax = plt.subplots(figsize=(10, 4))
-fig.patch.set_alpha(0)
-ax.set_facecolor((0, 0, 0, 0.8))
+fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
+ax.set_facecolor("black")
 if selected_company is None:
     ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
@@ -254,13 +241,14 @@ else:
                     return "color:red;"
             return ""
 
-        styled = open_df.style.applymap(colour, subset=["P/L $", "P/L %"]).format(precision=2)
+        styled = (
+            open_df.style.applymap(colour, subset=["P/L $", "P/L %"]).format(precision=2)
+        )
         st.write(styled.to_html(index=False), unsafe_allow_html=True)
 
     with graph_col:
-        fig2, ax2 = plt.subplots(figsize=(6, 4))
-        fig2.patch.set_alpha(0)
-        ax2.set_facecolor((0, 0, 0, 0.8))
+        fig2, ax2 = plt.subplots(figsize=(6, 4), facecolor="black")
+        ax2.set_facecolor("black")
         for _, row in open_df.iterrows():
             start = pd.to_datetime(row["Buy Date"])
             history = df_sorted[
