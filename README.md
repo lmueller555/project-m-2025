@@ -9,7 +9,7 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-The app shows key statistics for the backtest, a portfolio value chart and a table of open positions.
+The app shows key statistics for the backtest, a portfolio value chart and a table of open positions.  All realised profits in the backtest are reduced by a 24% short‑term capital gains tax to provide a more realistic simulation.
 
 ## Deployment on Streamlit Community Cloud
 
