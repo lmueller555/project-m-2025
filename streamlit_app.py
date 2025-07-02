@@ -15,6 +15,7 @@ CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
 MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
+ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
 # The dataset has a year long gap before 2025-06-20. Change metrics
 # should not cross this date when looking back in time.
 EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
@@ -40,6 +41,13 @@ def run_backtest(df):
     portfolio, trades, equity_curve = [], [], []
     trade_history = []
 
+    def close_position(pos, sell_price):
+        gross = pos["shares_bought"] * sell_price
+        profit = (sell_price - pos["buy_price"]) * pos["shares_bought"]
+        tax = ST_CAP_GAINS_RATE * profit if profit > 0 else 0
+        net = gross - tax
+        return net, profit, profit > 0
+
     for i, curr_date in enumerate(date_index):
         contrib_ctr += 1
         if contrib_ctr == CONTRIB_FREQ:
@@ -48,19 +56,23 @@ def run_backtest(df):
 
         if curr_date == MANUAL_EXIT_DATE:
             for pos in portfolio[:]:
-                px = df.loc[(df["Company"] == pos["company"]) &
-                            (df["Date"] == curr_date), "Price"]
+                px = df.loc[
+                    (df["Company"] == pos["company"]) &
+                    (df["Date"] == curr_date), "Price"
+                ]
                 if px.empty:
                     continue
-                px = px.iloc[0]
-                profit = (px - pos["buy_price"]) * pos["shares_bought"]
-                cash += pos["shares_bought"] * px
-                trades.append(profit > 0)
+                sell_px = px.iloc[0]
+                cash_inc, profit, win = close_position(pos, sell_px)
+                cash += cash_inc
+                trades.append(win)
                 trade_history.append(
-                    dict(company=pos["company"],
-                         date=curr_date,
-                         action="sell",
-                         price=px)
+                    dict(
+                        company=pos["company"],
+                        date=curr_date,
+                        action="sell",
+                        price=sell_px,
+                    )
                 )
             portfolio.clear()
 
@@ -95,19 +107,23 @@ def run_backtest(df):
 
         for pos in portfolio[:]:
             if pos["sell_date"] is not None and curr_date == pos["sell_date"]:
-                px = df.loc[(df["Company"] == pos["company"]) &
-                            (df["Date"] == pos["sell_date"]), "Price"]
+                px = df.loc[
+                    (df["Company"] == pos["company"]) &
+                    (df["Date"] == pos["sell_date"]), "Price"
+                ]
                 if px.empty:
                     continue
-                px = px.iloc[0]
-                profit = (px - pos["buy_price"]) * pos["shares_bought"]
-                cash += pos["shares_bought"] * px
-                trades.append(profit > 0)
+                sell_px = px.iloc[0]
+                cash_inc, profit, win = close_position(pos, sell_px)
+                cash += cash_inc
+                trades.append(win)
                 trade_history.append(
-                    dict(company=pos["company"],
-                         date=curr_date,
-                         action="sell",
-                         price=px)
+                    dict(
+                        company=pos["company"],
+                        date=curr_date,
+                        action="sell",
+                        price=sell_px,
+                    )
                 )
                 portfolio.remove(pos)
 
