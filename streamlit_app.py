@@ -15,7 +15,6 @@ CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
 MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
-SHORT_TERM_TAX_RATE = 0.24  # 24% tax on short-term gains
 # The dataset has a year long gap before 2025-06-20. Change metrics
 # should not cross this date when looking back in time.
 EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
@@ -56,8 +55,6 @@ def run_backtest(df):
                 px = px.iloc[0]
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
-                if profit > 0:
-                    cash -= profit * SHORT_TERM_TAX_RATE
                 trades.append(profit > 0)
                 trade_history.append(
                     dict(company=pos["company"],
@@ -105,8 +102,6 @@ def run_backtest(df):
                 px = px.iloc[0]
                 profit = (px - pos["buy_price"]) * pos["shares_bought"]
                 cash += pos["shares_bought"] * px
-                if profit > 0:
-                    cash -= profit * SHORT_TERM_TAX_RATE
                 trades.append(profit > 0)
                 trade_history.append(
                     dict(company=pos["company"],
