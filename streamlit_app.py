@@ -59,7 +59,7 @@ def run_backtest(df):
                 if nxt.empty:
                     continue
                 next_open = nxt.iloc[0]["Open"]
-                qty = (cash * 0.30) / next_open
+                qty = (cash * 0.30) // next_open
                 if qty >= 1:
                     invest = qty * next_open
                     cash -= invest
