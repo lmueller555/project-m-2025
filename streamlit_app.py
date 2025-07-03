@@ -9,16 +9,12 @@ st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
 plt.style.use("dark_background")  # black theme for all plots
 
 # —— CONFIG ——
-FILE_PATH = "Updated_Dataset_with_Signals_Ranked.csv"
+FILE_PATH = "Updated_Dataset_with_Signals_Ranked_100.csv"
 INITIAL_INVEST = 50_000
 CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
-MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
 ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
-# The dataset has a year long gap before 2025-06-20. Change metrics
-# should not cross this date when looking back in time.
-EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
 
 # —— LOAD DATA ——
 @st.cache_data
@@ -54,27 +50,6 @@ def run_backtest(df):
             cash += CONTRIB_AMOUNT
             contrib_ctr = 0
 
-        if curr_date == MANUAL_EXIT_DATE:
-            for pos in portfolio[:]:
-                px = df.loc[
-                    (df["Company"] == pos["company"]) &
-                    (df["Date"] == curr_date), "Price"
-                ]
-                if px.empty:
-                    continue
-                sell_px = px.iloc[0]
-                cash_inc, profit, win = close_position(pos, sell_px)
-                cash += cash_inc
-                trades.append(win)
-                trade_history.append(
-                    dict(
-                        company=pos["company"],
-                        date=curr_date,
-                        action="sell",
-                        price=sell_px,
-                    )
-                )
-            portfolio.clear()
 
         todays_rows = df[df["Date"] == curr_date]
         for _, row in todays_rows.iterrows():
@@ -84,7 +59,7 @@ def run_backtest(df):
                 if nxt.empty:
                     continue
                 next_open = nxt.iloc[0]["Open"]
-                qty = (cash * 0.30) / next_open
+                qty = (cash * 0.30) // next_open
                 if qty >= 1:
                     invest = qty * next_open
                     cash -= invest
@@ -166,6 +141,7 @@ def run_backtest(df):
             "Days Remaining": days_remaining
         })
     open_df = pd.DataFrame(rows)
+    open_df = open_df[open_df["Days Remaining"] >= 0].reset_index(drop=True)
 
     trades_df = pd.DataFrame(trade_history)
     return (
@@ -201,11 +177,7 @@ sel_col, metric_col = st.columns([1, 2])
 selected_tf = sel_col.selectbox("Change Period", list(timeframe_options.keys()))
 days = timeframe_options[selected_tf]
 candidate_idx = len(series_vals) - (days + 1) if len(series_vals) > days else 0
-try:
-    limit_idx = series_vals.index.get_loc(EARLIEST_CHANGE_DATE)
-except KeyError:
-    limit_idx = 0
-start_idx = max(candidate_idx, limit_idx)
+start_idx = candidate_idx
 start_val = series_vals.iloc[start_idx]
 change = series_vals.iloc[-1] - start_val
 change_pct = (change / start_val * 100) if start_val != 0 else 0
