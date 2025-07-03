@@ -3,43 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import date
-import base64
 
 st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
-
-# add background logo with 50% opacity
-def add_logo_background(png_file):
-    """Embed logo as background image for the app."""
-    with open(png_file, "rb") as img:
-        encoded = base64.b64encode(img.read()).decode()
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            position: relative;
-            z-index: 1;
-        }}
-        .stApp::before {{
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background-image: url(data:image/png;base64,{encoded});
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
-            opacity: 0.5;
-            z-index: 0;
-            pointer-events: none;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-add_logo_background("Mueller Logo.png")
 
 plt.style.use("dark_background")  # black theme for all plots
 
@@ -50,6 +15,7 @@ CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
 MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
+ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
 # The dataset has a year long gap before 2025-06-20. Change metrics
 # should not cross this date when looking back in time.
 EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
@@ -75,6 +41,13 @@ def run_backtest(df):
     portfolio, trades, equity_curve = [], [], []
     trade_history = []
 
+    def close_position(pos, sell_price):
+        gross = pos["shares_bought"] * sell_price
+        profit = (sell_price - pos["buy_price"]) * pos["shares_bought"]
+        tax = ST_CAP_GAINS_RATE * profit if profit > 0 else 0
+        net = gross - tax
+        return net, profit, profit > 0
+
     for i, curr_date in enumerate(date_index):
         contrib_ctr += 1
         if contrib_ctr == CONTRIB_FREQ:
@@ -83,19 +56,23 @@ def run_backtest(df):
 
         if curr_date == MANUAL_EXIT_DATE:
             for pos in portfolio[:]:
-                px = df.loc[(df["Company"] == pos["company"]) &
-                            (df["Date"] == curr_date), "Price"]
+                px = df.loc[
+                    (df["Company"] == pos["company"]) &
+                    (df["Date"] == curr_date), "Price"
+                ]
                 if px.empty:
                     continue
-                px = px.iloc[0]
-                profit = (px - pos["buy_price"]) * pos["shares_bought"]
-                cash += pos["shares_bought"] * px
-                trades.append(profit > 0)
+                sell_px = px.iloc[0]
+                cash_inc, profit, win = close_position(pos, sell_px)
+                cash += cash_inc
+                trades.append(win)
                 trade_history.append(
-                    dict(company=pos["company"],
-                         date=curr_date,
-                         action="sell",
-                         price=px)
+                    dict(
+                        company=pos["company"],
+                        date=curr_date,
+                        action="sell",
+                        price=sell_px,
+                    )
                 )
             portfolio.clear()
 
@@ -130,19 +107,23 @@ def run_backtest(df):
 
         for pos in portfolio[:]:
             if pos["sell_date"] is not None and curr_date == pos["sell_date"]:
-                px = df.loc[(df["Company"] == pos["company"]) &
-                            (df["Date"] == pos["sell_date"]), "Price"]
+                px = df.loc[
+                    (df["Company"] == pos["company"]) &
+                    (df["Date"] == pos["sell_date"]), "Price"
+                ]
                 if px.empty:
                     continue
-                px = px.iloc[0]
-                profit = (px - pos["buy_price"]) * pos["shares_bought"]
-                cash += pos["shares_bought"] * px
-                trades.append(profit > 0)
+                sell_px = px.iloc[0]
+                cash_inc, profit, win = close_position(pos, sell_px)
+                cash += cash_inc
+                trades.append(win)
                 trade_history.append(
-                    dict(company=pos["company"],
-                         date=curr_date,
-                         action="sell",
-                         price=px)
+                    dict(
+                        company=pos["company"],
+                        date=curr_date,
+                        action="sell",
+                        price=sell_px,
+                    )
                 )
                 portfolio.remove(pos)
 
@@ -237,9 +218,8 @@ selected_label = st.selectbox("Select Company", options)
 selected_company = None if selected_label == "All Companies" else selected_label.split(" (", 1)[0]
 
 st.subheader("Portfolio Value Over Time")
-fig, ax = plt.subplots(figsize=(10, 4))
-fig.patch.set_alpha(0)
-ax.set_facecolor((0, 0, 0, 0.8))
+fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
+ax.set_facecolor("black")
 if selected_company is None:
     ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
@@ -283,9 +263,8 @@ else:
         st.write(styled.to_html(index=False), unsafe_allow_html=True)
 
     with graph_col:
-        fig2, ax2 = plt.subplots(figsize=(6, 4))
-        fig2.patch.set_alpha(0)
-        ax2.set_facecolor((0, 0, 0, 0.8))
+        fig2, ax2 = plt.subplots(figsize=(6, 4), facecolor="black")
+        ax2.set_facecolor("black")
         for _, row in open_df.iterrows():
             start = pd.to_datetime(row["Buy Date"])
             history = df_sorted[
