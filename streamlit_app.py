@@ -141,6 +141,7 @@ def run_backtest(df):
             "Days Remaining": days_remaining
         })
     open_df = pd.DataFrame(rows)
+    open_df = open_df[open_df["Days Remaining"] >= 0].reset_index(drop=True)
 
     trades_df = pd.DataFrame(trade_history)
     return (
