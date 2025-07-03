@@ -9,7 +9,7 @@ st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
 plt.style.use("dark_background")  # black theme for all plots
 
 # —— CONFIG ——
-FILE_PATH = "Updated_Dataset_with_Signals_Ranked.csv"
+FILE_PATH = "Updated_Dataset_with_Signals_Ranked_100.csv"
 INITIAL_INVEST = 50_000
 CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
