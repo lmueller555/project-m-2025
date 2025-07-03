@@ -13,7 +13,6 @@ FILE_PATH = "Updated_Dataset_with_Signals_Ranked_100.csv"
 INITIAL_INVEST = 50_000
 CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
-MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
 ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
 
@@ -51,27 +50,6 @@ def run_backtest(df):
             cash += CONTRIB_AMOUNT
             contrib_ctr = 0
 
-        if curr_date == MANUAL_EXIT_DATE:
-            for pos in portfolio[:]:
-                px = df.loc[
-                    (df["Company"] == pos["company"]) &
-                    (df["Date"] == curr_date), "Price"
-                ]
-                if px.empty:
-                    continue
-                sell_px = px.iloc[0]
-                cash_inc, profit, win = close_position(pos, sell_px)
-                cash += cash_inc
-                trades.append(win)
-                trade_history.append(
-                    dict(
-                        company=pos["company"],
-                        date=curr_date,
-                        action="sell",
-                        price=sell_px,
-                    )
-                )
-            portfolio.clear()
 
         todays_rows = df[df["Date"] == curr_date]
         for _, row in todays_rows.iterrows():
