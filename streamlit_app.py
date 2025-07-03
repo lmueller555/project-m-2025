@@ -16,9 +16,6 @@ CONTRIB_FREQ = 22
 MANUAL_EXIT_DATE = pd.Timestamp("2024-06-27")
 HOLD_DAYS = 25
 ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
-# The dataset has a year long gap before 2025-06-20. Change metrics
-# should not cross this date when looking back in time.
-EARLIEST_CHANGE_DATE = pd.Timestamp("2025-06-20")
 
 # —— LOAD DATA ——
 @st.cache_data
@@ -201,11 +198,7 @@ sel_col, metric_col = st.columns([1, 2])
 selected_tf = sel_col.selectbox("Change Period", list(timeframe_options.keys()))
 days = timeframe_options[selected_tf]
 candidate_idx = len(series_vals) - (days + 1) if len(series_vals) > days else 0
-try:
-    limit_idx = series_vals.index.get_loc(EARLIEST_CHANGE_DATE)
-except KeyError:
-    limit_idx = 0
-start_idx = max(candidate_idx, limit_idx)
+start_idx = candidate_idx
 start_val = series_vals.iloc[start_idx]
 change = series_vals.iloc[-1] - start_val
 change_pct = (change / start_val * 100) if start_val != 0 else 0
