@@ -188,6 +188,7 @@ def run_backtest(df):
 ) = run_backtest(df_sorted)
 
 sp_df = load_sp500(SP500_FILE)
+sp_df = sp_df[sp_df["Date"] >= date_index[0]]
 sp_series = simulate_sp500(sp_df)
 
 # —— DASHBOARD ——
