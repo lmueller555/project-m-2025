@@ -15,6 +15,7 @@ CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
 HOLD_DAYS = 25
 ST_CAP_GAINS_RATE = 0.24  # 24% short-term capital gains tax
+SP500_FILE = "S&P 500 Historical Data.csv"
 
 # —— LOAD DATA ——
 @st.cache_data
@@ -26,6 +27,30 @@ def load_prices(fp):
             df[col].astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce"
         )
     return df.sort_values("Date")
+
+@st.cache_data
+def load_sp500(fp):
+    df = pd.read_csv(fp)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Price"] = pd.to_numeric(df["Price"].astype(str).str.replace(",", ""))
+    return df.sort_values("Date")
+
+def simulate_sp500(df):
+    df = df.sort_values("Date")
+    cash = INITIAL_INVEST
+    contrib_ctr = 0
+    units = 0.0
+    values = []
+    for _, row in df.iterrows():
+        if contrib_ctr == CONTRIB_FREQ:
+            cash += CONTRIB_AMOUNT
+            contrib_ctr = 0
+        if cash > 0:
+            units += cash / row["Price"]
+            cash = 0.0
+        values.append(units * row["Price"])
+        contrib_ctr += 1
+    return pd.Series(values, index=df["Date"])
 
 df_sorted = load_prices(FILE_PATH)
 date_index = df_sorted["Date"].unique()
@@ -162,6 +187,10 @@ def run_backtest(df):
     trade_df,
 ) = run_backtest(df_sorted)
 
+sp_df = load_sp500(SP500_FILE)
+sp_df = sp_df[sp_df["Date"] >= date_index[0]]
+sp_series = simulate_sp500(sp_df)
+
 # —— DASHBOARD ——
 st.title("📈 Project M – Virtual Portfolio")
 st.subheader(f"Today's Date: {date.today().isoformat()}")
@@ -193,7 +222,11 @@ st.subheader("Portfolio Value Over Time")
 fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
 ax.set_facecolor("black")
 if selected_company is None:
-    ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2)
+    ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2, label="Strategy")
+    if not sp_series.empty:
+        common = series_vals.index.intersection(sp_series.index)
+        ax.plot(common, sp_series.loc[common], color="#FFA500", linewidth=2, label="S&P 500")
+        ax.legend()
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
 else:
     history = df_sorted[df_sorted["Company"] == selected_company]
