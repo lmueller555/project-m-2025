@@ -200,17 +200,35 @@ c1.metric("Final Portfolio Value", f"${final_val:,.2f}")
 c2.metric("ROI", f"{roi:.2f}%")
 c3.metric("Win Rate", f"{win_rate:.2f}%")
 
-# --- PORTFOLIO CHANGE METRIC ---
+# --- PERFORMANCE COMPARISON RIBBON ---
 timeframe_options = {"Weekly": 7, "Monthly": 30, "Yearly": 365}
-sel_col, metric_col = st.columns([1, 2])
-selected_tf = sel_col.selectbox("Change Period", list(timeframe_options.keys()))
+selected_tf = st.radio(
+    "Select Timeframe",
+    list(timeframe_options.keys()),
+    horizontal=True,
+)
 days = timeframe_options[selected_tf]
-candidate_idx = len(series_vals) - (days + 1) if len(series_vals) > days else 0
-start_idx = candidate_idx
-start_val = series_vals.iloc[start_idx]
-change = series_vals.iloc[-1] - start_val
-change_pct = (change / start_val * 100) if start_val != 0 else 0
-metric_col.metric(f"{selected_tf} Change", f"${change:,.2f}", f"{change_pct:.2f}%")
+start_idx = len(series_vals) - days if len(series_vals) > days else 0
+strategy_slice = series_vals.iloc[start_idx:]
+sp_slice = sp_series.loc[strategy_slice.index[0] :] if not sp_series.empty else sp_series
+
+if not strategy_slice.empty:
+    strat_change = strategy_slice.iloc[-1] - strategy_slice.iloc[0]
+    strat_pct = (strat_change / strategy_slice.iloc[0] * 100) if strategy_slice.iloc[0] != 0 else 0
+else:
+    strat_change = strat_pct = 0
+
+if not sp_slice.empty:
+    sp_slice = sp_slice.loc[strategy_slice.index.intersection(sp_slice.index)]
+    sp_change = sp_slice.iloc[-1] - sp_slice.iloc[0]
+    sp_pct = (sp_change / sp_slice.iloc[0] * 100) if sp_slice.iloc[0] != 0 else 0
+else:
+    sp_change = sp_pct = 0
+
+st.write(
+    f"**Strategy {selected_tf} Change:** ${strat_change:,.2f} ({strat_pct:.2f}%)  | "
+    f"**S&P 500 {selected_tf} Change:** ${sp_change:,.2f} ({sp_pct:.2f}%)"
+)
 
 # --- COMPANY DROPDOWN ---
 trade_counts = trade_df[trade_df["action"] == "buy"]["company"].value_counts()
@@ -222,10 +240,10 @@ st.subheader("Portfolio Value Over Time")
 fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
 ax.set_facecolor("black")
 if selected_company is None:
-    ax.plot(series_vals.index, series_vals.values, color="#00BFFF", linewidth=2, label="Strategy")
-    if not sp_series.empty:
-        common = series_vals.index.intersection(sp_series.index)
-        ax.plot(common, sp_series.loc[common], color="#FFA500", linewidth=2, label="S&P 500")
+    ax.plot(strategy_slice.index, strategy_slice.values, color="#00BFFF", linewidth=2, label="Strategy")
+    if not sp_slice.empty:
+        common = strategy_slice.index.intersection(sp_slice.index)
+        ax.plot(common, sp_slice.loc[common], color="#FFA500", linewidth=2, label="S&P 500")
         ax.legend()
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
 else:
