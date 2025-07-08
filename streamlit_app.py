@@ -9,7 +9,7 @@ st.set_page_config(page_title="Project M Trading Dashboard", layout="wide")
 plt.style.use("dark_background")  # black theme for all plots
 
 # —— CONFIG ——
-FILE_PATH = "Updated_Dataset_with_Signals_Ranked_100.csv"
+FILE_PATH = "Updated_Dataset_with_Signals_Ranked_116.csv"
 INITIAL_INVEST = 50_000
 CONTRIB_AMOUNT = 3_000
 CONTRIB_FREQ = 22
@@ -79,7 +79,7 @@ def run_backtest(df):
         todays_rows = df[df["Date"] == curr_date]
         for _, row in todays_rows.iterrows():
             if row["30 Day Buy Signal"] == 1 and cash > 0 and i + 1 < len(date_index):
-                nxt = df[(df["Company"] == row["Company"]) &
+                nxt = df[(df["Ticker"] == row["Ticker"]) &
                          (df["Date"] == date_index[i + 1])]
                 if nxt.empty:
                     continue
@@ -92,14 +92,14 @@ def run_backtest(df):
                     sell_date = (date_index[i + HOLD_DAYS]
                                  if i + HOLD_DAYS < len(date_index) else None)
                     portfolio.append(
-                        dict(company=row["Company"],
+                        dict(company=row["Ticker"],
                              buy_date=buy_date,
                              sell_date=sell_date,
                              shares_bought=qty,
                              buy_price=next_open)
                     )
                     trade_history.append(
-                        dict(company=row["Company"],
+                        dict(company=row["Ticker"],
                              date=buy_date,
                              action="buy",
                              price=next_open)
@@ -108,7 +108,7 @@ def run_backtest(df):
         for pos in portfolio[:]:
             if pos["sell_date"] is not None and curr_date == pos["sell_date"]:
                 px = df.loc[
-                    (df["Company"] == pos["company"]) &
+                    (df["Ticker"] == pos["company"]) &
                     (df["Date"] == pos["sell_date"]), "Price"
                 ]
                 if px.empty:
@@ -129,7 +129,7 @@ def run_backtest(df):
 
         pv = 0
         for pos in portfolio:
-            cur_px = df.loc[(df["Company"] == pos["company"]) &
+            cur_px = df.loc[(df["Ticker"] == pos["company"]) &
                             (df["Date"] == curr_date), "Price"]
             if not cur_px.empty:
                 pv += pos["shares_bought"] * cur_px.iloc[0]
@@ -143,7 +143,7 @@ def run_backtest(df):
     last_date = date_index[-1]
     rows = []
     for pos in portfolio:
-        last_px = df.loc[(df["Company"] == pos["company"]) &
+        last_px = df.loc[(df["Ticker"] == pos["company"]) &
                          (df["Date"] == last_date), "Price"]
         if last_px.empty:
             continue
@@ -156,7 +156,7 @@ def run_backtest(df):
             days_held = (last_date - pos["buy_date"]).days
             days_remaining = HOLD_DAYS - days_held
         rows.append({
-            "Company": pos["company"],
+            "Ticker": pos["company"],
             "Shares": round(pos["shares_bought"], 2),
             "Buy Date": pos["buy_date"].date(),
             "Buy Price": round(pos["buy_price"], 2),
@@ -214,9 +214,9 @@ metric_col.metric(f"{selected_tf} Change", f"${change:,.2f}", f"{change_pct:.2f}
 
 # --- COMPANY DROPDOWN ---
 trade_counts = trade_df[trade_df["action"] == "buy"]["company"].value_counts()
-options = ["All Companies"] + [f"{c} ({trade_counts[c]})" for c in trade_counts.index]
-selected_label = st.selectbox("Select Company", options)
-selected_company = None if selected_label == "All Companies" else selected_label.split(" (", 1)[0]
+options = ["All Tickers"] + [f"{c} ({trade_counts[c]})" for c in trade_counts.index]
+selected_label = st.selectbox("Select Ticker", options)
+selected_company = None if selected_label == "All Tickers" else selected_label.split(" (", 1)[0]
 
 st.subheader("Portfolio Value Over Time")
 fig, ax = plt.subplots(figsize=(10, 4), facecolor="black")
@@ -229,7 +229,7 @@ if selected_company is None:
         ax.legend()
     ax.set_ylabel("Total Portfolio Value ($)", color="white")
 else:
-    history = df_sorted[df_sorted["Company"] == selected_company]
+    history = df_sorted[df_sorted["Ticker"] == selected_company]
     ax.plot(history["Date"], history["Price"], color="#00BFFF", linewidth=2, label=selected_company)
     comp_trades = trade_df[trade_df["company"] == selected_company]
     buys = comp_trades[comp_trades["action"] == "buy"]
@@ -273,10 +273,10 @@ else:
         for _, row in open_df.iterrows():
             start = pd.to_datetime(row["Buy Date"])
             history = df_sorted[
-                (df_sorted["Company"] == row["Company"]) & (df_sorted["Date"] >= start)
+                (df_sorted["Ticker"] == row["Ticker"]) & (df_sorted["Date"] >= start)
             ]
             pct_change = (history["Price"] - row["Buy Price"]) / row["Buy Price"] * 100
-            ax2.plot(history["Date"], pct_change, label=row["Company"])
+            ax2.plot(history["Date"], pct_change, label=row["Ticker"])
 
         ax2.set_xlabel("Date", color="white")
         ax2.set_ylabel("Price Change (%)", color="white")

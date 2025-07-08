@@ -1,6 +1,6 @@
 # Project M Trading Dashboard
 
-This repository contains a Streamlit app for visualising a trading strategy using the data in `Updated_Dataset_with_Signals_Ranked.csv`.
+This repository contains a Streamlit app for visualising a trading strategy using the data in `Updated_Dataset_with_Signals_Ranked_116.csv`.
 
 ## Running locally
 
