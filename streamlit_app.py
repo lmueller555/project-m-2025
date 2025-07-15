@@ -61,6 +61,7 @@ def run_backtest(df):
     cash, contrib_ctr = INITIAL_INVEST, 0
     portfolio, trades, equity_curve = [], [], []
     trade_history = []
+    trade_outcomes = []
 
     def close_position(pos, sell_price):
         gross = pos["shares_bought"] * sell_price
@@ -117,6 +118,7 @@ def run_backtest(df):
                 cash_inc, profit, win = close_position(pos, sell_px)
                 cash += cash_inc
                 trades.append(win)
+                trade_outcomes.append(dict(date=curr_date, win=win))
                 trade_history.append(
                     dict(
                         company=pos["company"],
@@ -169,6 +171,7 @@ def run_backtest(df):
     open_df = open_df[open_df["Days Remaining"] >= 0].reset_index(drop=True)
 
     trades_df = pd.DataFrame(trade_history)
+    wins_df = pd.DataFrame(trade_outcomes)
     final_cash = round(cash, 2)
     return (
         pd.Series(equity_curve, index=date_index),
@@ -178,6 +181,7 @@ def run_backtest(df):
         final_cash,
         open_df,
         trades_df,
+        wins_df,
     )
 
 (
@@ -188,6 +192,7 @@ def run_backtest(df):
     final_cash,
     open_df,
     trade_df,
+    wins_df,
 ) = run_backtest(df_sorted)
 
 sp_df = load_sp500(SP500_FILE)
@@ -205,16 +210,32 @@ c3.metric("Win Rate", f"{win_rate:.2f}%")
 c4.metric("Available Cash", f"${final_cash:,.2f}")
 
 # --- PORTFOLIO CHANGE METRIC ---
-timeframe_options = {"Weekly": 7, "Monthly": 30, "Yearly": 365}
-sel_col, metric_col = st.columns([1, 2])
+timeframe_options = {
+    "Weekly": 7,
+    "Monthly": 30,
+    "Yearly": 365,
+    "5 Year": 365 * 5,
+    "Max": None,
+}
+sel_col, metric_col, win_col = st.columns([1, 1, 1])
 selected_tf = sel_col.selectbox("Change Period", list(timeframe_options.keys()))
 days = timeframe_options[selected_tf]
-candidate_idx = len(series_vals) - (days + 1) if len(series_vals) > days else 0
-start_idx = candidate_idx
+if days is None:
+    start_idx = 0
+else:
+    candidate_idx = len(series_vals) - (days + 1) if len(series_vals) > days else 0
+    start_idx = candidate_idx
 start_val = series_vals.iloc[start_idx]
+start_date = series_vals.index[start_idx]
 change = series_vals.iloc[-1] - start_val
 change_pct = (change / start_val * 100) if start_val != 0 else 0
-metric_col.metric(f"{selected_tf} Change", f"${change:,.2f}", f"{change_pct:.2f}%")
+metric_col.metric(
+    f"{selected_tf} Change", f"${change:,.2f}", f"{change_pct:.2f}%"
+)
+wins_df["date"] = pd.to_datetime(wins_df["date"])
+selected_wins = wins_df[wins_df["date"] >= start_date]
+tf_win_rate = selected_wins["win"].mean() * 100 if not selected_wins.empty else 0
+win_col.metric(f"{selected_tf} Win Rate", f"{tf_win_rate:.2f}%")
 
 # --- COMPANY DROPDOWN ---
 trade_counts = trade_df[trade_df["action"] == "buy"]["company"].value_counts()
