@@ -169,11 +169,13 @@ def run_backtest(df):
     open_df = open_df[open_df["Days Remaining"] >= 0].reset_index(drop=True)
 
     trades_df = pd.DataFrame(trade_history)
+    final_cash = round(cash, 2)
     return (
         pd.Series(equity_curve, index=date_index),
         round(final_val, 2),
         round(roi, 2),
         round(win_rate, 2),
+        final_cash,
         open_df,
         trades_df,
     )
@@ -183,6 +185,7 @@ def run_backtest(df):
     final_val,
     roi,
     win_rate,
+    final_cash,
     open_df,
     trade_df,
 ) = run_backtest(df_sorted)
@@ -195,10 +198,11 @@ sp_series = simulate_sp500(sp_df)
 st.title("📈 Project M – Virtual Portfolio")
 st.subheader(f"Today's Date: {date.today().isoformat()}")
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("Final Portfolio Value", f"${final_val:,.2f}")
 c2.metric("ROI", f"{roi:.2f}%")
 c3.metric("Win Rate", f"{win_rate:.2f}%")
+c4.metric("Available Cash", f"${final_cash:,.2f}")
 
 # --- PORTFOLIO CHANGE METRIC ---
 timeframe_options = {"Weekly": 7, "Monthly": 30, "Yearly": 365}
