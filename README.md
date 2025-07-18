@@ -9,7 +9,7 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-The app shows key statistics for the backtest, a portfolio value chart and a table of open positions.
+The app shows key statistics for the backtest, a portfolio value chart and a table of open positions. The open positions table now includes a summary row showing the total current investment and aggregate P/L across all active trades.
 
 ## Deployment on Streamlit Community Cloud
 
