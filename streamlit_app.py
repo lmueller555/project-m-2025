@@ -276,6 +276,14 @@ st.subheader("Open Positions")
 if open_df.empty:
     st.info("No active trades.")
 else:
+    # Calculate summary stats for open trades
+    total_trading = (open_df["Shares"] * open_df["Current Price"]).sum()
+    total_pl = open_df["P/L $"].sum()
+
+    mcol1, mcol2 = st.columns(2)
+    mcol1.metric("Capital in Active Trades", f"${total_trading:,.2f}")
+    mcol2.metric("Open Trade P/L", f"${total_pl:,.2f}")
+
     table_col, graph_col = st.columns(2)
 
     with table_col:
