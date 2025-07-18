@@ -163,9 +163,10 @@ def run_backtest(df):
             "Buy Date": pos["buy_date"].date(),
             "Buy Price": round(pos["buy_price"], 2),
             "Current Price": round(last_px, 2),
+            "Current Investment": round(pos["shares_bought"] * last_px, 2),
             "P/L $": round(pl_val, 2),
             "P/L %": round(pl_pct, 2),
-            "Days Remaining": days_remaining
+            "Days Remaining": days_remaining,
         })
     open_df = pd.DataFrame(rows)
     open_df = open_df[open_df["Days Remaining"] >= 0].reset_index(drop=True)
@@ -277,12 +278,21 @@ if open_df.empty:
     st.info("No active trades.")
 else:
     # Calculate summary stats for open trades
-    total_trading = (open_df["Shares"] * open_df["Current Price"]).sum()
+    total_trading = (open_df["Current Investment"]).sum()
     total_pl = open_df["P/L $"].sum()
 
-    mcol1, mcol2 = st.columns(2)
-    mcol1.metric("Capital in Active Trades", f"${total_trading:,.2f}")
-    mcol2.metric("Open Trade P/L", f"${total_pl:,.2f}")
+    summary_row = {
+        "Ticker": "Total",
+        "Shares": "",
+        "Buy Date": "",
+        "Buy Price": "",
+        "Current Price": "",
+        "Current Investment": round(total_trading, 2),
+        "P/L $": round(total_pl, 2),
+        "P/L %": "",
+        "Days Remaining": "",
+    }
+    table_df = pd.concat([open_df, pd.DataFrame([summary_row])], ignore_index=True)
 
     table_col, graph_col = st.columns(2)
 
@@ -296,7 +306,7 @@ else:
             return ""
 
         styled = (
-            open_df.style.applymap(colour, subset=["P/L $", "P/L %"]).format(precision=2)
+            table_df.style.applymap(colour, subset=["P/L $", "P/L %"]).format(precision=2)
         )
         st.write(styled.to_html(index=False), unsafe_allow_html=True)
 
